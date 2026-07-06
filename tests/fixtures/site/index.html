@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>Fixture Home</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/app.js"></script>
+  </head>
+  <body>
+    <a href="/about.html">About</a>
+    <a href="/about.html#team">About duplicate with fragment</a>
+    <a href="/missing.html">Missing local page</a>
+    <a href="%REMOTE_ORIGIN%/ok.html">Remote ok</a>
+    <a href="%REMOTE_ORIGIN%/missing.html">Remote missing</a>
+    <a href="/document.pdf">Downloadable document</a>
+    <a href="mailto:hello@example.com">Ignored email</a>
+    <img src="/image.png" alt="fixture" />
+    <img srcset="/small.png 1x, /large.png 2x" alt="responsive fixture" />
+  </body>
+</html>
