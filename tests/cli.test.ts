@@ -11,9 +11,9 @@ const dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(dirname, '..');
 const fixtureRoot = path.join(dirname, 'fixtures/site');
 
-describe('bhouston-link-tester CLI', () => {
+describe('bhouston-link-checker CLI', () => {
   const cli = commandLine({
-    command: ['node', './dist/bin/bhouston-link-tester.js'],
+    command: ['node', './dist/bin/bhouston-link-checker.js'],
     cwd: projectRoot,
     env: { FORCE_COLOR: '0' },
     stripAnsi: true,
@@ -46,11 +46,14 @@ describe('bhouston-link-tester CLI', () => {
     const report = result.json<LinkTesterResult>();
 
     expect(result.success).toBe(true);
-    expect(result.stderr).toContain('Checking local URL:');
-    expect(result.stderr).toContain('Visited page:');
+    expect(result.stderr).toContain('Confirmed ');
+    expect(result.stderr).toContain('Error ');
+    expect(result.stderr).toContain('Ignored ');
+    expect(result.stderr).not.toContain('Checking ');
+    expect(result.stderr).not.toContain('Visited page:');
     expect(report.summary.visitedPageCount).toBe(3);
-    expect(report.summary.brokenUrlCount).toBe(2);
-    expect(report.summary.skippedUrlCount).toBe(0);
+    expect(report.summary.brokenUrlCount).toBe(1);
+    expect(report.summary.skippedUrlCount).toBe(2);
     expect(report.reports.pages).toHaveLength(3);
     expect(report.reports.brokenLinks.map((brokenLink) => brokenLink.url)).toContain(
       `${localServer.origin}/missing.html`,
@@ -62,7 +65,7 @@ describe('bhouston-link-tester CLI', () => {
 
     expect(result.success).toBe(false);
     expect(result.exitCode).toBe(1);
-    expect(result.stdout).toContain('Broken URLs: 2');
+    expect(result.stdout).toContain('Broken URLs: 1');
     expect(result.stdout).toContain('Pages viewed:');
     expect(result.stdout).toContain('Broken links by URL:');
     expect(result.stdout).toContain('No broken links found.');
@@ -85,7 +88,7 @@ describe('bhouston-link-tester CLI', () => {
     expect(result.stdout).toContain('Link check complete');
   });
 
-  it('can skip non-whitelisted external URLs', async () => {
+  it('skips external URLs by default', async () => {
     const result = await cli.run([
       `${localServer.origin}/`,
       '--concurrency',
@@ -94,7 +97,6 @@ describe('bhouston-link-tester CLI', () => {
       '10000',
       '--json',
       '--quiet',
-      '--no-external',
       '--no-fail-on-error',
     ]);
     const report = result.json<LinkTesterResult>();
@@ -107,7 +109,7 @@ describe('bhouston-link-tester CLI', () => {
     );
   });
 
-  it('can whitelist external domains for crawling', async () => {
+  it('can allow whitelisted external domains for validation', async () => {
     const result = await cli.run([
       `${localServer.origin}/`,
       '--concurrency',
@@ -116,8 +118,7 @@ describe('bhouston-link-tester CLI', () => {
       '10000',
       '--json',
       '--quiet',
-      '--no-external',
-      '--external-whitelist',
+      '--allow-whitelist',
       '127.0.0.1',
       '--no-fail-on-error',
     ]);
@@ -125,7 +126,21 @@ describe('bhouston-link-tester CLI', () => {
 
     expect(result.success).toBe(true);
     expect(report.summary.skippedUrlCount).toBe(0);
-    expect(report.visitedPages.map((page) => page.url)).toContain(`${remoteServer.origin}/ok.html`);
+    expect(report.validatedUrls.find((record) => record.url === `${remoteServer.origin}/ok.html`)?.status).toBe('ok');
+    expect(report.visitedPages.map((page) => page.url)).not.toContain(`${remoteServer.origin}/ok.html`);
+  });
+
+  it('rejects allowing all external domains with a whitelist', async () => {
+    const result = await cli.run([
+      `${localServer.origin}/`,
+      '--allow-external',
+      '--allow-whitelist',
+      '127.0.0.1',
+      '--no-fail-on-error',
+    ]);
+
+    expect(result.success).toBe(false);
+    expect(result.stderr).toContain('--allow-external and --allow-whitelist are incompatible');
   });
 
   it('documents the headed browser option', async () => {
@@ -135,7 +150,7 @@ describe('bhouston-link-tester CLI', () => {
     expect(result.stdout).toContain('--show-browser');
     expect(result.stdout).toContain('--headed');
     expect(result.stdout).toContain('--quiet');
-    expect(result.stdout).toContain('--external');
-    expect(result.stdout).toContain('--external-whitelist');
+    expect(result.stdout).toContain('--allow-external');
+    expect(result.stdout).toContain('--allow-whitelist');
   });
 });

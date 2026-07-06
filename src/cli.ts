@@ -9,7 +9,7 @@ const dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export const main = async (argv = hideBin(process.argv)): Promise<void> => {
   await yargs(argv)
-    .scriptName('bhouston-link-tester')
+    .scriptName('bhouston-link-checker')
     .command(
       await fileCommands({
         commandDirs: [path.join(dirname, 'commands')],

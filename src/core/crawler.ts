@@ -30,8 +30,8 @@ type MutableValidationRecord = Omit<ValidationRecord, 'sourcePages' | 'sources'>
 
 type CrawlerState = {
   localOrigins: Set<string>;
-  crawlableExternalDomains: Set<string>;
-  validateExternal: boolean;
+  allowExternal: boolean;
+  allowWhitelist: Set<string>;
   onProgress: LinkTesterOptions['onProgress'];
   queue: QueueTask[];
   enqueuedUrls: Set<string>;
@@ -94,9 +94,12 @@ const createResult = (state: CrawlerState, seedUrls: string[]): LinkTesterResult
   };
 };
 
-const isCrawlableUrl = (normalizedUrl: NormalizedUrl, state: CrawlerState): boolean =>
-  isLocalUrl(normalizedUrl, state.localOrigins) ||
-  isHostnameAllowed(normalizedUrl.hostname, state.crawlableExternalDomains);
+const isAllowedExternalUrl = (normalizedUrl: NormalizedUrl, state: CrawlerState): boolean =>
+  !isLocalUrl(normalizedUrl, state.localOrigins) &&
+  (state.allowExternal || isHostnameAllowed(normalizedUrl.hostname, state.allowWhitelist));
+
+const isValidatableUrl = (normalizedUrl: NormalizedUrl, state: CrawlerState): boolean =>
+  isLocalUrl(normalizedUrl, state.localOrigins) || isAllowedExternalUrl(normalizedUrl, state);
 
 const enqueueUrl = (
   state: CrawlerState,
@@ -113,7 +116,7 @@ const enqueueUrl = (
   let record = state.validatedUrls.get(normalizedUrl.key);
 
   if (record === undefined) {
-    record = createValidationRecord(normalizedUrl, isCrawlableUrl(normalizedUrl, state));
+    record = createValidationRecord(normalizedUrl, isLocalUrl(normalizedUrl, state.localOrigins));
     state.validatedUrls.set(normalizedUrl.key, record);
   }
 
@@ -124,15 +127,21 @@ const enqueueUrl = (
     record.sources.push(source);
   }
 
-  if (!record.isLocal && optionsShouldSkipExternal(state, record)) {
+  if (optionsShouldSkipExternal(state, normalizedUrl)) {
+    const isNewlySkipped = record.status !== 'skipped';
+
     record.status = 'skipped';
     record.statusText = 'External validation disabled';
     record.error = undefined;
-    state.onProgress?.({
-      type: 'validation-skipped',
-      url: record.url,
-      reason: 'external validation disabled',
-    });
+
+    if (isNewlySkipped) {
+      state.onProgress?.({
+        type: 'validation-skipped',
+        url: record.url,
+        reason: 'external validation disabled',
+      });
+    }
+
     return record;
   }
 
@@ -144,8 +153,8 @@ const enqueueUrl = (
   return record;
 };
 
-const optionsShouldSkipExternal = (state: CrawlerState, record: MutableValidationRecord): boolean =>
-  state.localOrigins.size > 0 && !record.isLocal && state.validateExternal === false;
+const optionsShouldSkipExternal = (state: CrawlerState, normalizedUrl: NormalizedUrl): boolean =>
+  state.localOrigins.size > 0 && !isValidatableUrl(normalizedUrl, state);
 
 const getResponseStatusText = (status: number | undefined): string | undefined => {
   if (status === undefined) {
@@ -218,6 +227,7 @@ const validateWithPage = async (
       isLocal: record.isLocal,
       status: record.status,
       httpStatus: record.httpStatus,
+      redirectUrl: record.redirectUrl,
       error: record.error,
     });
   }
@@ -249,7 +259,13 @@ const validateWithRequest = async (
 };
 
 const shouldVisitPage = (state: CrawlerState, record: MutableValidationRecord, options: LinkTesterOptions): boolean => {
-  if (!record.isLocal || record.status !== 'ok' || !isHtmlContentType(record.contentType)) {
+  const normalizedUrl = normalizeUrl(record.url);
+
+  if (normalizedUrl === null || !isLocalUrl(normalizedUrl, state.localOrigins)) {
+    return false;
+  }
+
+  if (record.status !== 'ok' || !isHtmlContentType(record.contentType)) {
     return false;
   }
 
@@ -381,6 +397,10 @@ export const runLinkCheck = async (options: LinkTesterOptions): Promise<LinkTest
     throw new Error('Concurrency must be a positive integer.');
   }
 
+  if (options.allowExternal === true && (options.allowWhitelist?.length ?? 0) > 0) {
+    throw new Error('allowExternal and allowWhitelist are incompatible. Choose one external validation mode.');
+  }
+
   const normalizedSeeds: NormalizedUrl[] = [];
 
   for (const url of options.urls) {
@@ -396,12 +416,12 @@ export const runLinkCheck = async (options: LinkTesterOptions): Promise<LinkTest
   const seedUrls = normalizedSeeds.map((url) => url.url);
   const state: CrawlerState = {
     localOrigins: new Set(normalizedSeeds.map((url) => url.origin)),
-    crawlableExternalDomains: new Set(
-      (options.externalWhitelist ?? [])
+    allowExternal: options.allowExternal === true,
+    allowWhitelist: new Set(
+      (options.allowWhitelist ?? [])
         .map(normalizeWhitelistDomain)
         .filter((domain): domain is string => domain !== null),
     ),
-    validateExternal: options.validateExternal !== false,
     onProgress: options.onProgress,
     queue: [],
     enqueuedUrls: new Set(),

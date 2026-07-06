@@ -1,23 +1,33 @@
+import chalk from 'chalk';
 import { defineCommand } from 'yargs-file-commands';
 
 import { runLinkCheck } from '../core/crawler.js';
 import { renderJsonReport, renderTextReport } from '../core/report.js';
 import type { LinkTesterProgressEvent } from '../types.js';
 
-const formatProgressEvent = (event: LinkTesterProgressEvent): string => {
+const formatProgressEvent = (event: LinkTesterProgressEvent): string | null => {
   switch (event.type) {
     case 'validation-start':
-      return `Checking ${event.isLocal ? 'local' : 'remote'} URL: ${event.url}`;
+      return null;
     case 'validation-complete': {
       const status = event.httpStatus ?? event.error ?? event.status;
-      return `Finished ${event.status === 'broken' ? 'broken' : 'ok'} URL: ${event.url} (${status})`;
+
+      if (event.status === 'broken') {
+        return chalk.red(`Error ${event.url} (${status})`);
+      }
+
+      if (event.redirectUrl !== undefined) {
+        return chalk.yellow(`Redirect ${event.url} -> ${event.redirectUrl} (${status})`);
+      }
+
+      return chalk.green(`Confirmed ${event.url} (${status})`);
     }
     case 'page-visited':
-      return `Visited page: ${event.url} (${event.discoveredUrlCount} URLs found)`;
+      return null;
     case 'page-visit-failed':
-      return `Failed to inspect page: ${event.url} (${event.error})`;
+      return chalk.red(`Error inspecting page ${event.url} (${event.error})`);
     case 'validation-skipped':
-      return `Skipped URL: ${event.url} (${event.reason})`;
+      return chalk.gray(`Ignored ${event.url} (${event.reason})`);
   }
 };
 
@@ -62,15 +72,15 @@ export const command = defineCommand({
         default: false,
         describe: 'Suppress running progress output.',
       })
-      .option('external', {
+      .option('allow-external', {
         type: 'boolean',
-        default: true,
-        describe: 'Validate non-local URLs. Use --no-external to skip non-whitelisted external URLs.',
+        default: false,
+        describe: 'Validate all external URLs. Incompatible with --allow-whitelist.',
       })
-      .option('external-whitelist', {
+      .option('allow-whitelist', {
         type: 'string',
         array: true,
-        describe: 'External domain that may be validated and crawled. Repeat for multiple domains.',
+        describe: 'External domain that may be validated. Repeat for multiple domains.',
       })
       .option('fail-on-error', {
         type: 'boolean',
@@ -80,6 +90,15 @@ export const command = defineCommand({
       .option('max-pages', {
         type: 'number',
         describe: 'Maximum number of local pages to visit.',
+      })
+      .check((argv) => {
+        if (argv.allowExternal === true && Array.isArray(argv.allowWhitelist) && argv.allowWhitelist.length > 0) {
+          throw new Error(
+            '--allow-external and --allow-whitelist are incompatible. Choose one external validation mode.',
+          );
+        }
+
+        return true;
       }),
   handler: async (argv) => {
     const result = await runLinkCheck({
@@ -89,12 +108,16 @@ export const command = defineCommand({
       userAgent: argv.userAgent,
       maxPages: argv.maxPages,
       showBrowser: argv.showBrowser,
-      validateExternal: argv.external,
-      externalWhitelist: argv.externalWhitelist,
+      allowExternal: argv.allowExternal,
+      allowWhitelist: argv.allowWhitelist,
       onProgress: argv.quiet
         ? undefined
         : (event) => {
-            process.stderr.write(`${formatProgressEvent(event)}\n`);
+            const message = formatProgressEvent(event);
+
+            if (message !== null) {
+              process.stderr.write(`${message}\n`);
+            }
           },
     });
 

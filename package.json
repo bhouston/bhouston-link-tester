@@ -1,9 +1,10 @@
 {
-  "name": "bhouston-link-tester",
+  "name": "bhouston-link-checker",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
+  "description": "A Playwright-powered CLI for crawling pages and checking links.",
   "bin": {
-    "bhouston-link-tester": "./dist/bin/bhouston-link-tester.js"
+    "bhouston-link-checker": "./dist/bin/bhouston-link-checker.js"
   },
   "files": [
     "dist"
@@ -13,7 +14,8 @@
   "scripts": {
     "prepare": "husky",
     "build": "tsgo --project tsconfig.build.json",
-    "start": "node ./dist/bin/bhouston-link-tester.js",
+    "start": "node ./dist/bin/bhouston-link-checker.js",
+    "make-release": "node scripts/make-release.ts .",
     "tsc": "tsgo --noEmit",
     "pretest": "pnpm build",
     "test": "vitest run",
@@ -24,6 +26,7 @@
     "clean": "rimraf dist coverage"
   },
   "dependencies": {
+    "chalk": "^5.6.2",
     "p-limit": "^7.3.0",
     "playwright": "^1.61.1",
     "yargs": "^18.0.0",

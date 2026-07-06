@@ -44,8 +44,8 @@ export type LinkTesterOptions = {
   userAgent?: string;
   maxPages?: number;
   showBrowser?: boolean;
-  validateExternal?: boolean;
-  externalWhitelist?: string[];
+  allowExternal?: boolean;
+  allowWhitelist?: string[];
   onProgress?: (event: LinkTesterProgressEvent) => void;
 };
 
@@ -61,6 +61,7 @@ export type LinkTesterProgressEvent =
       isLocal: boolean;
       status: LinkStatus;
       httpStatus?: number;
+      redirectUrl?: string;
       error?: string;
     }
   | {
