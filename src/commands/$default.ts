@@ -82,6 +82,11 @@ export const command = defineCommand({
         array: true,
         describe: 'External domain that may be validated. Repeat for multiple domains.',
       })
+      .option('exclude-url-match', {
+        type: 'string',
+        array: true,
+        describe: 'Plain text URL substring to skip. Repeat for multiple matches.',
+      })
       .option('fail-on-error', {
         type: 'boolean',
         default: true,
@@ -110,6 +115,7 @@ export const command = defineCommand({
       showBrowser: argv.showBrowser,
       allowExternal: argv.allowExternal,
       allowWhitelist: argv.allowWhitelist,
+      excludeUrlMatches: argv.excludeUrlMatch,
       onProgress: argv.quiet
         ? undefined
         : (event) => {

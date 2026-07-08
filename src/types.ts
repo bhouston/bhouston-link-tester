@@ -46,6 +46,7 @@ export type LinkTesterOptions = {
   showBrowser?: boolean;
   allowExternal?: boolean;
   allowWhitelist?: string[];
+  excludeUrlMatches?: string[];
   onProgress?: (event: LinkTesterProgressEvent) => void;
 };
 

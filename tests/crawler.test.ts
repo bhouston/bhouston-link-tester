@@ -94,6 +94,27 @@ describe('runLinkCheck', () => {
     expect(skippedUrls.filter((url) => url === `${remoteServer.origin}/ok.html`)).toHaveLength(1);
   });
 
+  it('skips URLs that contain configured plain text matches', async () => {
+    const excludeResult = await runLinkCheck({
+      urls: [`${localServer.origin}/`],
+      concurrency: 2,
+      timeout: 10_000,
+      excludeUrlMatches: ['/missing.html', '/image.png'],
+    });
+
+    const localMissing = findRecord(excludeResult, `${localServer.origin}/missing.html`);
+    const remoteMissing = findRecord(excludeResult, `${remoteServer.origin}/missing.html`);
+    const image = findRecord(excludeResult, `${localServer.origin}/image.png`);
+
+    expect(localMissing.status).toBe('skipped');
+    expect(localMissing.statusText).toBe('Excluded by URL match: /missing.html');
+    expect(localMissing.httpStatus).toBeUndefined();
+    expect(remoteMissing.status).toBe('skipped');
+    expect(image.status).toBe('skipped');
+    expect(excludeResult.summary.brokenUrlCount).toBe(0);
+    expect(excludeResult.summary.skippedUrlCount).toBe(4);
+  });
+
   it('records source pages for broken links', () => {
     const localMissing = findRecord(result, `${localServer.origin}/missing.html`);
 

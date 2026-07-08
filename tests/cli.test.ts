@@ -130,6 +130,34 @@ describe('bhouston-link-checker CLI', () => {
     expect(report.visitedPages.map((page) => page.url)).not.toContain(`${remoteServer.origin}/ok.html`);
   });
 
+  it('can exclude URLs with repeated plain text matches', async () => {
+    const result = await cli.run([
+      `${localServer.origin}/`,
+      '--concurrency',
+      '2',
+      '--timeout',
+      '10000',
+      '--json',
+      '--quiet',
+      '--exclude-url-match',
+      '/missing.html',
+      '--exclude-url-match',
+      '/image.png',
+      '--no-fail-on-error',
+    ]);
+    const report = result.json<LinkTesterResult>();
+
+    expect(result.success).toBe(true);
+    expect(report.summary.brokenUrlCount).toBe(0);
+    expect(report.summary.skippedUrlCount).toBe(4);
+    expect(report.validatedUrls.find((record) => record.url === `${localServer.origin}/missing.html`)?.status).toBe(
+      'skipped',
+    );
+    expect(report.validatedUrls.find((record) => record.url === `${localServer.origin}/image.png`)?.status).toBe(
+      'skipped',
+    );
+  });
+
   it('rejects allowing all external domains with a whitelist', async () => {
     const result = await cli.run([
       `${localServer.origin}/`,
@@ -152,5 +180,6 @@ describe('bhouston-link-checker CLI', () => {
     expect(result.stdout).toContain('--quiet');
     expect(result.stdout).toContain('--allow-external');
     expect(result.stdout).toContain('--allow-whitelist');
+    expect(result.stdout).toContain('--exclude-url-match');
   });
 });

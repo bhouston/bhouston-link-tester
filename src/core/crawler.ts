@@ -32,6 +32,7 @@ type CrawlerState = {
   localOrigins: Set<string>;
   allowExternal: boolean;
   allowWhitelist: Set<string>;
+  excludeUrlMatches: string[];
   onProgress: LinkTesterOptions['onProgress'];
   queue: QueueTask[];
   enqueuedUrls: Set<string>;
@@ -101,6 +102,30 @@ const isAllowedExternalUrl = (normalizedUrl: NormalizedUrl, state: CrawlerState)
 const isValidatableUrl = (normalizedUrl: NormalizedUrl, state: CrawlerState): boolean =>
   isLocalUrl(normalizedUrl, state.localOrigins) || isAllowedExternalUrl(normalizedUrl, state);
 
+const getExcludedUrlMatch = (normalizedUrl: NormalizedUrl, state: CrawlerState): string | null =>
+  state.excludeUrlMatches.find((match) => normalizedUrl.url.includes(match)) ?? null;
+
+const markRecordSkipped = (
+  state: CrawlerState,
+  record: MutableValidationRecord,
+  statusText: string,
+  reason: string,
+) => {
+  const isNewlySkipped = record.status !== 'skipped';
+
+  record.status = 'skipped';
+  record.statusText = statusText;
+  record.error = undefined;
+
+  if (isNewlySkipped) {
+    state.onProgress?.({
+      type: 'validation-skipped',
+      url: record.url,
+      reason,
+    });
+  }
+};
+
 const enqueueUrl = (
   state: CrawlerState,
   rawUrl: string,
@@ -127,21 +152,20 @@ const enqueueUrl = (
     record.sources.push(source);
   }
 
+  const excludedUrlMatch = getExcludedUrlMatch(normalizedUrl, state);
+
+  if (excludedUrlMatch !== null) {
+    markRecordSkipped(
+      state,
+      record,
+      `Excluded by URL match: ${excludedUrlMatch}`,
+      `matched exclude-url-match: ${excludedUrlMatch}`,
+    );
+    return record;
+  }
+
   if (optionsShouldSkipExternal(state, normalizedUrl)) {
-    const isNewlySkipped = record.status !== 'skipped';
-
-    record.status = 'skipped';
-    record.statusText = 'External validation disabled';
-    record.error = undefined;
-
-    if (isNewlySkipped) {
-      state.onProgress?.({
-        type: 'validation-skipped',
-        url: record.url,
-        reason: 'external validation disabled',
-      });
-    }
-
+    markRecordSkipped(state, record, 'External validation disabled', 'external validation disabled');
     return record;
   }
 
@@ -422,6 +446,9 @@ export const runLinkCheck = async (options: LinkTesterOptions): Promise<LinkTest
         .map(normalizeWhitelistDomain)
         .filter((domain): domain is string => domain !== null),
     ),
+    excludeUrlMatches: (options.excludeUrlMatches ?? [])
+      .map((match) => match.trim())
+      .filter((match) => match.length > 0),
     onProgress: options.onProgress,
     queue: [],
     enqueuedUrls: new Set(),

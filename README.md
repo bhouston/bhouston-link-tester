@@ -58,6 +58,7 @@ By default, the command exits with code `1` when broken links are found. Use `--
 - `--quiet`: Suppress progress output on stderr.
 - `--allow-external`: Validate all external URLs.
 - `--allow-whitelist <domain>`: Validate a specific external domain. Repeat for multiple domains.
+- `--exclude-url-match <text>`: Skip URLs containing a plain text match. Repeat for multiple matches.
 - `--fail-on-error`, `--no-fail-on-error`: Control whether broken links produce a non-zero exit code. Defaults to failing on errors.
 - `--max-pages <number>`: Limit how many local pages are visited.
 
