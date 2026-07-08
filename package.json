@@ -1,6 +1,6 @@
 {
   "name": "bhouston-link-checker",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": false,
   "description": "A CLI for crawling pages and checking links.",
   "bin": {
