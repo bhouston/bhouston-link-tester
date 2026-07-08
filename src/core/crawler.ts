@@ -1,6 +1,7 @@
 import { chromium, type BrowserContext, type Page } from 'playwright';
 import pLimit from 'p-limit';
 
+import { ExternalDomainValidators } from './externalDomainValidator.js';
 import { extractLinksFromDocument } from './extractLinks.js';
 import {
   isHostnameAllowed,
@@ -23,6 +24,8 @@ type QueueTask = {
   normalizedUrl: string;
 };
 
+const DEFAULT_USER_AGENT = 'bhouston-link-checker';
+
 type MutableValidationRecord = Omit<ValidationRecord, 'sourcePages' | 'sources'> & {
   sourcePages: Set<string>;
   sources: LinkSource[];
@@ -34,6 +37,7 @@ type CrawlerState = {
   allowWhitelist: Set<string>;
   excludeUrlMatches: string[];
   onProgress: LinkTesterOptions['onProgress'];
+  externalValidators: ExternalDomainValidators;
   queue: QueueTask[];
   enqueuedUrls: Set<string>;
   validatedUrls: Map<string, MutableValidationRecord>;
@@ -171,7 +175,12 @@ const enqueueUrl = (
 
   if (!state.enqueuedUrls.has(normalizedUrl.key)) {
     state.enqueuedUrls.add(normalizedUrl.key);
-    state.queue.push({ normalizedUrl: normalizedUrl.key });
+
+    if (record.isLocal) {
+      state.queue.push({ normalizedUrl: normalizedUrl.key });
+    } else {
+      void state.externalValidators.enqueue(record);
+    }
   }
 
   return record;
@@ -438,6 +447,12 @@ export const runLinkCheck = async (options: LinkTesterOptions): Promise<LinkTest
   }
 
   const seedUrls = normalizedSeeds.map((url) => url.url);
+  const userAgent = options.userAgent ?? DEFAULT_USER_AGENT;
+  const externalValidators = new ExternalDomainValidators({
+    timeout: options.timeout,
+    userAgent,
+    onProgress: options.onProgress,
+  });
   const state: CrawlerState = {
     localOrigins: new Set(normalizedSeeds.map((url) => url.origin)),
     allowExternal: options.allowExternal === true,
@@ -450,6 +465,7 @@ export const runLinkCheck = async (options: LinkTesterOptions): Promise<LinkTest
       .map((match) => match.trim())
       .filter((match) => match.length > 0),
     onProgress: options.onProgress,
+    externalValidators,
     queue: [],
     enqueuedUrls: new Set(),
     validatedUrls: new Map(),
@@ -459,7 +475,7 @@ export const runLinkCheck = async (options: LinkTesterOptions): Promise<LinkTest
     headless: options.showBrowser !== true,
   });
   const context = await browser.newContext({
-    userAgent: options.userAgent,
+    userAgent,
   });
 
   try {
@@ -468,9 +484,11 @@ export const runLinkCheck = async (options: LinkTesterOptions): Promise<LinkTest
     }
 
     await validateQueue(context, state, options);
+    await externalValidators.waitForIdle();
   } finally {
     await context.close();
     await browser.close();
+    externalValidators.destroy();
   }
 
   return createResult(state, seedUrls);

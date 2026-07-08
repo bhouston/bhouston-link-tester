@@ -2,7 +2,7 @@
   "name": "bhouston-link-checker",
   "version": "0.1.0",
   "private": false,
-  "description": "A Playwright-powered CLI for crawling pages and checking links.",
+  "description": "A CLI for crawling pages and checking links.",
   "bin": {
     "bhouston-link-checker": "./dist/bin/bhouston-link-checker.js"
   },

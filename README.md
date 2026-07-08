@@ -1,6 +1,6 @@
 # bhouston-link-checker
 
-A Playwright-powered CLI for crawling a site and reporting broken links.
+A CLI for crawling a site and reporting broken links.
 
 The checker starts from one or more seed URLs, visits same-origin HTML pages, extracts links and common asset references, validates the discovered URLs, and reports broken links by page and by URL.
 
@@ -10,8 +10,9 @@ The checker starts from one or more seed URLs, visits same-origin HTML pages, ex
 - Checks links from `a`, `area`, `link`, `script`, images, media, iframes, forms, `object[data]`, and `srcset`.
 - Skips external URLs by default so local site checks stay bounded.
 - Can validate all external URLs or a domain whitelist when needed, without following links found on those external pages.
+- Checks external URLs with polite per-domain queues, `robots.txt`, `HEAD` requests, and the configured user agent.
 - Emits readable text reports or machine-readable JSON.
-- Uses Playwright with configurable concurrency and navigation timeout.
+- Uses Playwright with configurable concurrency for same-origin crawling.
 
 ## Install
 
@@ -50,9 +51,9 @@ By default, the command exits with code `1` when broken links are found. Use `--
 
 ## Options
 
-- `--concurrency <number>`: Maximum number of Playwright tabs to use. Defaults to `4`.
+- `--concurrency <number>`: Maximum number of Playwright tabs to use for same-origin crawling. Defaults to `4`.
 - `--timeout <ms>`: Navigation timeout in milliseconds. Defaults to `30000`.
-- `--user-agent <value>`: Custom user agent for Playwright requests.
+- `--user-agent <value>`: Custom user agent for local crawling and external validation. Defaults to `bhouston-link-checker`.
 - `--show-browser`, `--headed`: Show the Playwright browser while checking links.
 - `--json`: Emit a JSON report instead of text.
 - `--quiet`: Suppress progress output on stderr.

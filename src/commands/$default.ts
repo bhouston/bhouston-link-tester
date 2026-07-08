@@ -45,7 +45,7 @@ export const command = defineCommand({
       .option('concurrency', {
         type: 'number',
         default: 4,
-        describe: 'Maximum number of Playwright tabs to use.',
+        describe: 'Maximum number of Playwright tabs to use for same-origin crawling.',
       })
       .option('timeout', {
         type: 'number',
@@ -54,7 +54,7 @@ export const command = defineCommand({
       })
       .option('user-agent', {
         type: 'string',
-        describe: 'Custom user agent for Playwright requests.',
+        describe: 'Custom user agent for local crawling and external validation.',
       })
       .option('show-browser', {
         alias: 'headed',
