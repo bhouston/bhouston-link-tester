@@ -49,6 +49,8 @@ time pnpm start http://localhost:8081/ --concurrency 6 --timeout 10000
 
 By default, the command exits with code `1` when broken links are found. Use `--no-fail-on-error` when you want a report without failing the shell command.
 
+If the run is cancelled with `Ctrl-C` or `SIGTERM`, the checker stops scheduling new work, lets in-flight requests finish, writes a partial report, and exits with the signal-style cancellation code. URLs discovered but not checked yet are reported as pending.
+
 ## Options
 
 - `--concurrency <number>`: Maximum number of Playwright tabs to use for same-origin crawling. Defaults to `4`.
@@ -73,7 +75,7 @@ bhouston-link-checker http://localhost:3000/ --json --quiet --no-fail-on-error
 
 The JSON report includes:
 
-- `summary`: Seed URLs, visited page count, validated URL count, broken URL count, OK URL count, and skipped URL count.
+- `summary`: Seed URLs, visited page count, validated URL count, broken URL count, OK URL count, skipped URL count, pending URL count, and whether the run was cancelled.
 - `validatedUrls`: Every checked or skipped URL with status, source pages, redirects, HTTP status, and errors when present.
 - `visitedPages`: Crawled pages and how many URLs were discovered on each page.
 - `reports.pages`: Broken links grouped by source page.

@@ -45,7 +45,7 @@ export const renderJsonReport = (result: LinkTesterResult): string => `${JSON.st
 export const renderTextReport = (result: LinkTesterResult): string => {
   const redirects = result.validatedUrls.map(formatRedirectRecord).filter((line): line is string => line !== null);
   const lines = [
-    'Link check complete',
+    result.summary.cancelled ? 'Link check cancelled' : 'Link check complete',
     '',
     `Seed URLs: ${result.summary.seedUrls.length}`,
     `Visited pages: ${result.summary.visitedPageCount}`,
@@ -53,6 +53,7 @@ export const renderTextReport = (result: LinkTesterResult): string => {
     `OK URLs: ${result.summary.okUrlCount}`,
     `Broken URLs: ${result.summary.brokenUrlCount}`,
     `Skipped URLs: ${result.summary.skippedUrlCount}`,
+    `Pending URLs: ${result.summary.pendingUrlCount}`,
   ];
 
   lines.push('', 'Pages viewed:');

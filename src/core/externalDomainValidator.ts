@@ -195,6 +195,7 @@ class ExternalDomainValidator {
   readonly #onProgress: LinkTesterOptions['onProgress'];
   readonly #queue: QueuedExternalValidation[] = [];
   #isRunning = false;
+  #isStopping = false;
   #idlePromise: Promise<void> = Promise.resolve();
   #resolveIdle: (() => void) | null = null;
   #robotsRules: Promise<RobotsRules> | null = null;
@@ -209,6 +210,10 @@ class ExternalDomainValidator {
   }
 
   enqueue(record: MutableValidationRecord): Promise<void> {
+    if (this.#isStopping) {
+      return Promise.resolve();
+    }
+
     if (record.status === 'ok' || record.status === 'broken' || record.status === 'skipped') {
       return Promise.resolve();
     }
@@ -232,6 +237,19 @@ class ExternalDomainValidator {
     await this.#idlePromise;
   }
 
+  stopAfterCurrentRequest(): void {
+    this.#isStopping = true;
+
+    for (const item of this.#queue.splice(0)) {
+      item.resolve();
+    }
+
+    if (!this.#isRunning) {
+      this.#resolveIdle?.();
+      this.#resolveIdle = null;
+    }
+  }
+
   destroy(): void {
     this.#agent.destroy();
   }
@@ -246,7 +264,7 @@ class ExternalDomainValidator {
   }
 
   async #processQueue(): Promise<void> {
-    while (this.#queue.length > 0) {
+    while (this.#queue.length > 0 && !this.#isStopping) {
       const item = this.#queue.shift();
 
       if (item === undefined) {
@@ -448,6 +466,12 @@ export class ExternalDomainValidators {
     }
 
     return validator.enqueue(record);
+  }
+
+  stopAfterCurrentRequests(): void {
+    for (const validator of this.#validators.values()) {
+      validator.stopAfterCurrentRequest();
+    }
   }
 
   async waitForIdle(): Promise<void> {

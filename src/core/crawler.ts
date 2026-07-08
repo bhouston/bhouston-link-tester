@@ -1,5 +1,4 @@
 import { chromium, type BrowserContext, type Page } from 'playwright';
-import pLimit from 'p-limit';
 
 import { ExternalDomainValidators } from './externalDomainValidator.js';
 import { extractLinksFromDocument } from './extractLinks.js';
@@ -42,6 +41,7 @@ type CrawlerState = {
   enqueuedUrls: Set<string>;
   validatedUrls: Map<string, MutableValidationRecord>;
   visitedPages: Map<string, PageVisitRecord>;
+  cancelled: boolean;
 };
 
 const createValidationRecord = (normalizedUrl: NormalizedUrl, isLocal: boolean): MutableValidationRecord => ({
@@ -69,6 +69,7 @@ const createResult = (state: CrawlerState, seedUrls: string[]): LinkTesterResult
   const brokenUrlCount = validatedUrls.filter((record) => record.status === 'broken').length;
   const okUrlCount = validatedUrls.filter((record) => record.status === 'ok').length;
   const skippedUrlCount = validatedUrls.filter((record) => record.status === 'skipped').length;
+  const pendingUrlCount = validatedUrls.filter((record) => record.status === 'pending').length;
   const pages = visitedPages.map((page) => ({
     pageUrl: page.normalizedUrl,
     brokenLinks: brokenUrls.filter((record) => record.sourcePages.includes(page.normalizedUrl)),
@@ -89,6 +90,8 @@ const createResult = (state: CrawlerState, seedUrls: string[]): LinkTesterResult
       brokenUrlCount,
       okUrlCount,
       skippedUrlCount,
+      pendingUrlCount,
+      cancelled: state.cancelled,
     },
     validatedUrls,
     visitedPages,
@@ -392,20 +395,19 @@ const validateTask = async (
 };
 
 const validateQueue = async (context: BrowserContext, state: CrawlerState, options: LinkTesterOptions) => {
-  const limit = pLimit(options.concurrency);
   const inFlight = new Set<Promise<void>>();
 
   const scheduleQueuedTasks = () => {
-    while (state.queue.length > 0) {
+    while (!state.cancelled && inFlight.size < options.concurrency && state.queue.length > 0) {
       const task = state.queue.shift();
 
       if (task === undefined) {
         continue;
       }
 
-      const promise = limit(async () => {
+      const promise = (async () => {
         await validateTask(context, state, options, task);
-      }).finally(() => {
+      })().finally(() => {
         inFlight.delete(promise);
       });
 
@@ -419,6 +421,12 @@ const validateQueue = async (context: BrowserContext, state: CrawlerState, optio
     await Promise.race(inFlight);
     scheduleQueuedTasks();
   }
+};
+
+const cancelCrawlerState = (state: CrawlerState): void => {
+  state.cancelled = true;
+  state.queue = [];
+  state.externalValidators.stopAfterCurrentRequests();
 };
 
 export const runLinkCheck = async (options: LinkTesterOptions): Promise<LinkTesterResult> => {
@@ -470,6 +478,10 @@ export const runLinkCheck = async (options: LinkTesterOptions): Promise<LinkTest
     enqueuedUrls: new Set(),
     validatedUrls: new Map(),
     visitedPages: new Map(),
+    cancelled: false,
+  };
+  const handleAbort = () => {
+    cancelCrawlerState(state);
   };
   const browser = await chromium.launch({
     headless: options.showBrowser !== true,
@@ -479,6 +491,12 @@ export const runLinkCheck = async (options: LinkTesterOptions): Promise<LinkTest
   });
 
   try {
+    if (options.signal?.aborted === true) {
+      cancelCrawlerState(state);
+    } else {
+      options.signal?.addEventListener('abort', handleAbort, { once: true });
+    }
+
     for (const seedUrl of seedUrls) {
       enqueueUrl(state, seedUrl, undefined);
     }
@@ -486,6 +504,7 @@ export const runLinkCheck = async (options: LinkTesterOptions): Promise<LinkTest
     await validateQueue(context, state, options);
     await externalValidators.waitForIdle();
   } finally {
+    options.signal?.removeEventListener('abort', handleAbort);
     await context.close();
     await browser.close();
     externalValidators.destroy();

@@ -227,6 +227,58 @@ describe('runLinkCheck', () => {
     expect(allowExternalResult.summary.skippedUrlCount).toBe(0);
   });
 
+  it('stops queued local validations on cancellation after active requests finish', async () => {
+    const firstRequestStarted = createDeferred();
+    const releaseFirstRequest = createDeferred();
+    const local = await startTestServer(async (request, response) => {
+      const requestUrl = new URL(request.url ?? '/', 'http://localhost');
+
+      if (requestUrl.pathname === '/') {
+        writeHtml(
+          response,
+          '<!doctype html><a href="/one.txt">One</a><a href="/two.txt">Two</a><a href="/three.txt">Three</a>',
+        );
+        return;
+      }
+
+      if (requestUrl.pathname === '/one.txt') {
+        firstRequestStarted.resolve();
+        await releaseFirstRequest.promise;
+      }
+
+      writeText(response, 200, 'ok');
+    });
+    const abortController = new AbortController();
+
+    try {
+      const linkCheck = runLinkCheck({
+        urls: [`${local.origin}/`],
+        concurrency: 1,
+        timeout: 10_000,
+        signal: abortController.signal,
+        onProgress: (event) => {
+          if (event.type === 'validation-start' && event.url === `${local.origin}/one.txt`) {
+            abortController.abort();
+          }
+        },
+      });
+
+      await firstRequestStarted.promise;
+      releaseFirstRequest.resolve();
+
+      const cancelledResult = await linkCheck;
+
+      expect(cancelledResult.summary.cancelled).toBe(true);
+      expect(cancelledResult.summary.pendingUrlCount).toBe(2);
+      expect(findRecord(cancelledResult, `${local.origin}/one.txt`).status).toBe('ok');
+      expect(findRecord(cancelledResult, `${local.origin}/two.txt`).status).toBe('pending');
+      expect(findRecord(cancelledResult, `${local.origin}/three.txt`).status).toBe('pending');
+    } finally {
+      releaseFirstRequest.resolve();
+      await local.close();
+    }
+  });
+
   it('validates but does not crawl whitelisted external domains', async () => {
     const whitelistResult = await runLinkCheck({
       urls: [`${localServer.origin}/`],
@@ -239,6 +291,67 @@ describe('runLinkCheck', () => {
     expect(findRecord(whitelistResult, `${remoteServer.origin}/missing.html`).status).toBe('broken');
     expect(whitelistResult.visitedPages.map((page) => page.url)).not.toContain(`${remoteServer.origin}/ok.html`);
     expect(whitelistResult.summary.skippedUrlCount).toBe(0);
+  });
+
+  it('stops queued external validations on cancellation after active requests finish', async () => {
+    const requestedPaths: string[] = [];
+    const firstRequestStarted = createDeferred();
+    const releaseFirstRequest = createDeferred();
+    const remote = await startTestServer(async (request, response) => {
+      const requestUrl = new URL(request.url ?? '/', 'http://localhost');
+      requestedPaths.push(requestUrl.pathname);
+
+      if (requestUrl.pathname === '/robots.txt') {
+        writeText(response, 404, 'not found');
+        return;
+      }
+
+      if (requestUrl.pathname === '/one.html') {
+        firstRequestStarted.resolve();
+        await releaseFirstRequest.promise;
+      }
+
+      writeText(response, 200, 'ok');
+    });
+    const local = await startTestServer((_request, response) => {
+      writeHtml(
+        response,
+        `<!doctype html><a href="${remote.origin}/one.html">One</a><a href="${remote.origin}/two.html">Two</a><a href="${remote.origin}/three.html">Three</a>`,
+      );
+    });
+    const abortController = new AbortController();
+
+    try {
+      const linkCheck = runLinkCheck({
+        urls: [`${local.origin}/`],
+        concurrency: 1,
+        timeout: 10_000,
+        allowExternal: true,
+        signal: abortController.signal,
+        onProgress: (event) => {
+          if (event.type === 'validation-start' && event.url === `${remote.origin}/one.html`) {
+            abortController.abort();
+          }
+        },
+      });
+
+      await firstRequestStarted.promise;
+      releaseFirstRequest.resolve();
+
+      const cancelledResult = await linkCheck;
+
+      expect(cancelledResult.summary.cancelled).toBe(true);
+      expect(cancelledResult.summary.pendingUrlCount).toBe(2);
+      expect(findRecord(cancelledResult, `${remote.origin}/one.html`).status).toBe('ok');
+      expect(findRecord(cancelledResult, `${remote.origin}/two.html`).status).toBe('pending');
+      expect(findRecord(cancelledResult, `${remote.origin}/three.html`).status).toBe('pending');
+      expect(requestedPaths).not.toContain('/two.html');
+      expect(requestedPaths).not.toContain('/three.html');
+    } finally {
+      releaseFirstRequest.resolve();
+      await local.close();
+      await remote.close();
+    }
   });
 
   it('rejects allowing all external domains with a whitelist', async () => {

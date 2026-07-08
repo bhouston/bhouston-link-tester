@@ -31,6 +31,8 @@ const formatProgressEvent = (event: LinkTesterProgressEvent): string | null => {
   }
 };
 
+const getCancellationExitCode = (signal: NodeJS.Signals): number => (signal === 'SIGTERM' ? 143 : 130);
+
 export const command = defineCommand({
   command: '$0 <urls..>',
   describe: 'Validate links discovered from one or more seed URLs.',
@@ -106,31 +108,53 @@ export const command = defineCommand({
         return true;
       }),
   handler: async (argv) => {
-    const result = await runLinkCheck({
-      urls: argv.urls,
-      concurrency: argv.concurrency,
-      timeout: argv.timeout,
-      userAgent: argv.userAgent,
-      maxPages: argv.maxPages,
-      showBrowser: argv.showBrowser,
-      allowExternal: argv.allowExternal,
-      allowWhitelist: argv.allowWhitelist,
-      excludeUrlMatches: argv.excludeUrlMatch,
-      onProgress: argv.quiet
-        ? undefined
-        : (event) => {
-            const message = formatProgressEvent(event);
+    const abortController = new AbortController();
+    let cancellationExitCode: number | undefined;
+    const handleCancellationSignal = (signal: NodeJS.Signals) => {
+      cancellationExitCode ??= getCancellationExitCode(signal);
 
-            if (message !== null) {
-              process.stderr.write(`${message}\n`);
-            }
-          },
-    });
+      if (!abortController.signal.aborted) {
+        process.stderr.write('Cancellation requested. Finishing in-flight requests before writing the report...\n');
+        abortController.abort();
+      }
+    };
 
-    process.stdout.write(argv.json ? renderJsonReport(result) : renderTextReport(result));
+    process.on('SIGINT', handleCancellationSignal);
+    process.on('SIGTERM', handleCancellationSignal);
 
-    if (argv.failOnError && result.summary.brokenUrlCount > 0) {
-      process.exitCode = 1;
+    try {
+      const result = await runLinkCheck({
+        urls: argv.urls,
+        concurrency: argv.concurrency,
+        timeout: argv.timeout,
+        userAgent: argv.userAgent,
+        maxPages: argv.maxPages,
+        showBrowser: argv.showBrowser,
+        allowExternal: argv.allowExternal,
+        allowWhitelist: argv.allowWhitelist,
+        excludeUrlMatches: argv.excludeUrlMatch,
+        signal: abortController.signal,
+        onProgress: argv.quiet
+          ? undefined
+          : (event) => {
+              const message = formatProgressEvent(event);
+
+              if (message !== null) {
+                process.stderr.write(`${message}\n`);
+              }
+            },
+      });
+
+      process.stdout.write(argv.json ? renderJsonReport(result) : renderTextReport(result));
+
+      if (result.summary.cancelled) {
+        process.exitCode = cancellationExitCode ?? 130;
+      } else if (argv.failOnError && result.summary.brokenUrlCount > 0) {
+        process.exitCode = 1;
+      }
+    } finally {
+      process.off('SIGINT', handleCancellationSignal);
+      process.off('SIGTERM', handleCancellationSignal);
     }
   },
 });

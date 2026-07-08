@@ -47,6 +47,7 @@ export type LinkTesterOptions = {
   allowExternal?: boolean;
   allowWhitelist?: string[];
   excludeUrlMatches?: string[];
+  signal?: AbortSignal;
   onProgress?: (event: LinkTesterProgressEvent) => void;
 };
 
@@ -88,6 +89,8 @@ export type LinkTesterSummary = {
   brokenUrlCount: number;
   okUrlCount: number;
   skippedUrlCount: number;
+  pendingUrlCount: number;
+  cancelled: boolean;
 };
 
 export type PageBrokenLinkReport = {
