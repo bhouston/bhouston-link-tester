@@ -31,10 +31,31 @@ pnpm test
 pnpm format
 ```
 
+`.github/workflows/ci.yml` runs the same install/build/tsc/lint/test steps, plus a dependency audit
+and a check that the publishable package still assembles, on every push and pull request to `main`.
+
 ## Releases
 
-Releases are cut manually and are not run by CI. From `main`, run
-`pnpm make-release`, which builds the package, stages `dist/`, `package.json`,
-and `README.md` into `publish/`, and runs `npm publish ./publish/ --access public`.
-Bump the version in `package.json` before releasing; there is no automated
-changelog.
+Publishing is manual and separate from merging to `main`, and there is no automated changelog —
+bump the version in `package.json` yourself in a regular commit/PR before releasing.
+
+To release:
+
+1. Merge the version bump into `main`.
+2. Dispatch the `Release` workflow: `gh workflow run release.yml --ref main`.
+3. The workflow re-runs CI against the dispatched commit, aborts if `main` has advanced past it, then
+   runs `node scripts/make-release.ts .`, which builds, stages `dist/`, `package.json`, and
+   `README.md` into `publish/`, and runs `npm publish ./publish/ --access public` via npm trusted
+   publishing (OIDC — no stored token).
+4. Use `gh workflow run release.yml --ref main -f dry_run=true` to verify without publishing.
+
+### One-time maintainer setup
+
+In the npm package settings for **bhouston-link-checker**, add a GitHub Actions trusted publisher:
+
+- Organization or user: `bhouston`
+- Repository: `bhouston-link-tester`
+- Workflow filename: `release.yml`
+- Environment name: leave blank
+
+No `NPM_TOKEN` is needed; publishing authenticates via `id-token: write`.

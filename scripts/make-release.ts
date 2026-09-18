@@ -5,7 +5,11 @@ import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } fr
 import { join, resolve } from 'node:path';
 
 function main() {
-  const packagePath = process.argv[2] ?? '.';
+  const flags = new Set(['--dry-run', '--assemble-only']);
+  const args = process.argv.slice(2).filter((arg) => !flags.has(arg));
+  const dryRun = process.argv.includes('--dry-run');
+  const assembleOnly = process.argv.includes('--assemble-only');
+  const packagePath = args[0] ?? '.';
   const resolvedPackagePath = resolve(packagePath);
   const publishPath = join(resolvedPackagePath, 'publish');
 
@@ -58,8 +62,13 @@ function main() {
     cpSync(npmignorePath, join(publishPath, '.npmignore'));
   }
 
-  console.log('Publishing package');
-  execSync('npm publish ./publish/ --access public', {
+  if (assembleOnly) {
+    console.log('Skipping publish (--assemble-only)');
+    return;
+  }
+
+  console.log(dryRun ? 'Publishing package (dry run)' : 'Publishing package');
+  execSync(`npm publish ./publish/ --access public${dryRun ? ' --dry-run' : ''}`, {
     cwd: resolvedPackagePath,
     stdio: 'inherit',
   });
