@@ -7,8 +7,8 @@ the single source of truth for the workflow.
 
 1. Before starting a feature or fix, open a GitHub issue (or reuse a matching
    existing one). Include a description, motivation, and acceptance criteria.
-2. Fetch `origin` and branch from `origin/main`, named `<type>/<issue>-<short-description>`,
-   e.g. `feat/12-retry-flag`. Never commit directly to `main`.
+2. Fetch `origin` and branch from `origin/main`. Branch names are not
+   enforced; use whatever name is convenient. Never commit directly to `main`.
 3. Use Conventional Commits for every commit: `type(scope): description`. Types:
    `feat`, `fix`, `perf`, `docs`, `chore`, `refactor`, `test`, `style`, `build`,
    `ci`, `revert`.
