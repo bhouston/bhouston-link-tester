@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: 'Run the release script without publishing (verification only)'
+        description: 'Run semantic-release without publishing (verification only)'
         type: boolean
         default: false
 
@@ -26,17 +26,20 @@ jobs:
           exit 1
   validate:
     needs: guard
+    if: vars.NPM_TRUSTED_PUBLISHING_ENABLED == 'true'
     uses: ./.github/workflows/ci.yml
   release:
     needs: validate
+    if: vars.NPM_TRUSTED_PUBLISHING_ENABLED == 'true'
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       id-token: write
     steps:
       - uses: actions/checkout@v6
         with:
           ref: ${{ github.sha }}
+          fetch-depth: 0
       - name: Verify main has not advanced since dispatch
         run: |
           git fetch origin main
@@ -53,14 +56,21 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Update npm for trusted publishing support
         run: npm install -g npm@latest
-      - name: Publish package.json version ${{ github.event.repository.name }}
-        run: node scripts/make-release.ts .${{ inputs.dry_run && ' --dry-run' || '' }}
+      - name: Run semantic-release
+        run: |
+          set -o pipefail
+          pnpm release ${{ inputs.dry_run && '--dry-run' || '' }} | tee release-output.log
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HUSKY: '0'
       - name: Summarize release outcome
         if: always()
         run: |
-          if [ "${{ inputs.dry_run }}" = "true" ]; then
-            echo "### Dry run completed; nothing published." >> "$GITHUB_STEP_SUMMARY"
+          if grep -qi 'no relevant changes' release-output.log; then
+            echo "### No release-worthy commits since the last release; nothing published." >> "$GITHUB_STEP_SUMMARY"
           else
-            VERSION=$(node -p "require('./package.json').version")
-            echo "### Published bhouston-link-checker@$VERSION" >> "$GITHUB_STEP_SUMMARY"
+            {
+              echo "### Release run completed"
+              grep -E 'Published release|Publishing version' release-output.log || true
+            } >> "$GITHUB_STEP_SUMMARY"
           fi

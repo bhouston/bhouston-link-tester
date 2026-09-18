@@ -7,7 +7,8 @@
     "bhouston-link-checker": "./dist/bin/bhouston-link-checker.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "CHANGELOG.md"
   ],
   "type": "module",
   "sideEffects": false,
@@ -23,7 +24,11 @@
     "format": "oxfmt .",
     "lint": "oxlint .",
     "lint:fix": "oxlint --fix .",
-    "clean": "rimraf dist coverage"
+    "clean": "rimraf dist coverage",
+    "commitlint": "commitlint",
+    "prerelease": "node scripts/make-release.ts . --assemble-only",
+    "release": "semantic-release",
+    "release:check": "node scripts/check-release.mjs"
   },
   "dependencies": {
     "chalk": "^5.6.2",
@@ -32,12 +37,17 @@
     "yargs-file-commands": "^1.2.2"
   },
   "devDependencies": {
+    "@commitlint/cli": "^21.2.2",
+    "@commitlint/config-conventional": "^21.2.2",
+    "@semantic-release/changelog": "^7.0.0",
     "@types/node": "^26.1.0",
     "@types/yargs": "^17.0.35",
+    "conventional-changelog-conventionalcommits": "^9.3.1",
     "husky": "^9.1.7",
     "oxfmt": "^0.58.0",
     "oxlint": "^1.73.0",
     "rimraf": "^6.1.3",
+    "semantic-release": "^25.0.9",
     "typescript": "^7",
     "vitest": "^4.1.10",
     "vitest-command-line": "^0.8.0"
