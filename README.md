@@ -81,31 +81,8 @@ The JSON report includes:
 - `reports.pages`: Broken links grouped by source page.
 - `reports.brokenLinks`: Broken links grouped by URL.
 
-## Development
-
-```sh
-pnpm install
-pnpm build
-pnpm test
-pnpm lint
-pnpm format
-```
-
 The local `pnpm start` script runs the built CLI from `dist`, so run `pnpm build` first after changing TypeScript source files.
 
-## Release
+## Contributing
 
-This project uses a release workflow adapted from `hdrify`:
-
-```sh
-pnpm make-release
-```
-
-The release script:
-
-1. Cleans `publish/`.
-2. Builds the package.
-3. Copies `dist`, `package.json`, `README.md`, and optional `LICENSE` or `.npmignore` files into `publish/`.
-4. Runs `npm publish ./publish/ --access public`.
-
-Use `npm publish ./publish/ --dry-run` from the project root if you want to inspect the package contents before publishing.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the issue/branch/PR workflow, local checks, and release process.
