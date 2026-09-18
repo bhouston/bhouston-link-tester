@@ -1,0 +1,66 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Run the release script without publishing (verification only)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-release
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reject dispatches targeting anything other than main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "Release may only be dispatched on main, got ${{ github.ref }}." | tee -a "$GITHUB_STEP_SUMMARY"
+          exit 1
+  validate:
+    needs: guard
+    uses: ./.github/workflows/ci.yml
+  release:
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+      - name: Verify main has not advanced since dispatch
+        run: |
+          git fetch origin main
+          if ! git merge-base --is-ancestor "${{ github.sha }}" origin/main; then
+            echo "main has moved past the dispatched commit; re-run the dispatch." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+          cache: pnpm
+          registry-url: 'https://registry.npmjs.org'
+      - run: pnpm install --frozen-lockfile
+      - name: Update npm for trusted publishing support
+        run: npm install -g npm@latest
+      - name: Publish package.json version ${{ github.event.repository.name }}
+        run: node scripts/make-release.ts .${{ inputs.dry_run && ' --dry-run' || '' }}
+      - name: Summarize release outcome
+        if: always()
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "### Dry run completed; nothing published." >> "$GITHUB_STEP_SUMMARY"
+          else
+            VERSION=$(node -p "require('./package.json').version")
+            echo "### Published bhouston-link-checker@$VERSION" >> "$GITHUB_STEP_SUMMARY"
+          fi
