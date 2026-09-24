@@ -11,5 +11,8 @@
       "files": ["**/*.test.ts", "**/*.spec.ts"],
       "plugins": ["eslint", "typescript", "oxc", "unicorn", "vitest"]
     }
-  ]
+  ],
+  "rules": {
+    "eslint/no-underscore-dangle": "off"
+  }
 }

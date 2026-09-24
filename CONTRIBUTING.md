@@ -56,12 +56,12 @@ Releases are computed from Conventional Commits by [semantic-release](https://se
 never run on push: dispatch `.github/workflows/release.yml` with `gh workflow run release.yml --ref main`.
 It rejects dispatches against any ref other than `main`, re-runs the quality checks against the exact
 dispatched commit, and aborts if `main` has advanced past that commit before the release step runs.
-`pnpm release` first assembles the package into `publish/` via `scripts/make-release.ts --assemble-only`
-(build, then stage `dist/`, `package.json`, and `README.md`), since `@semantic-release/npm` expects
-that directory to already exist. semantic-release then computes the version from commits since the
-previous `v*` tag, generates the changelog and release notes, copies the fresh `CHANGELOG.md` into
-`publish/`, creates the tag and GitHub release, and publishes `bhouston-link-checker` through npm
-trusted publishing (OIDC — no stored token), bumping `publish/package.json`'s version along the way.
+The workflow runs `pnpm build` first, then `pnpm release`. semantic-release computes the version from
+commits since the previous `v*` tag, generates the changelog and release notes, writes `CHANGELOG.md`
+at the repo root, creates the tag and GitHub release, and publishes `bhouston-link-checker` straight
+from the repo root via `pnpm publish` (through `@anolilab/semantic-release-pnpm`) using npm trusted
+publishing (OIDC — no stored token), bumping `package.json`'s version along the way. There is no
+assembled `publish/` staging directory — `package.json`'s `files` field controls what gets published.
 
 semantic-release does not commit a version/changelog update back to `main`; there is no
 `@semantic-release/git` step. The GitHub Release for each tag is the changelog of record, so the
@@ -95,6 +95,6 @@ See [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/) and
 To build and inspect the publishable package without going through semantic-release:
 
 ```sh
-node scripts/make-release.ts . --assemble-only
-npm pack --dry-run ./publish
+pnpm build
+npm pack --dry-run
 ```

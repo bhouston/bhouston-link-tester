@@ -52,10 +52,8 @@ jobs:
         with:
           node-version-file: '.nvmrc'
           cache: pnpm
-          registry-url: 'https://registry.npmjs.org'
       - run: pnpm install --frozen-lockfile
-      - name: Update npm for trusted publishing support
-        run: npm install -g npm@latest
+      - run: pnpm build
       - name: Run semantic-release
         run: |
           set -o pipefail
