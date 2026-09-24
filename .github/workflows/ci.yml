@@ -32,9 +32,7 @@ jobs:
         run: pnpm audit --audit-level high
       - name: Verify published package includes dist
         run: |
-          node scripts/make-release.ts . --assemble-only
-          npm pack --dry-run ./publish 2>&1 | tee pack-output.log
-          grep -qE '\bdist/bin/bhouston-link-checker\.js$' pack-output.log || {
+          pnpm pack --dry-run | grep -qx 'dist/bin/bhouston-link-checker.js' || {
             echo "::error::dist/bin/bhouston-link-checker.js missing from the packed tarball; the publish step would ship a broken package."
             exit 1
           }

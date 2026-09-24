@@ -5,8 +5,7 @@ module.exports = {
     ['@semantic-release/commit-analyzer', { preset: 'conventionalcommits' }],
     ['@semantic-release/release-notes-generator', { preset: 'conventionalcommits' }],
     ['@semantic-release/changelog', { changelogFile: 'CHANGELOG.md' }],
-    './scripts/release-assets.mjs',
-    ['@semantic-release/npm', { pkgRoot: 'publish' }],
+    ['@anolilab/semantic-release-pnpm', { pkgRoot: '.' }],
     ['@semantic-release/github', { successComment: false, failComment: false, releasedLabels: false }],
   ],
 };

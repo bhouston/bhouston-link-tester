@@ -8,6 +8,7 @@
   },
   "files": [
     "dist",
+    "README.md",
     "CHANGELOG.md"
   ],
   "type": "module",
@@ -16,7 +17,6 @@
     "prepare": "husky",
     "build": "tsc --project tsconfig.build.json",
     "start": "node ./dist/bin/bhouston-link-checker.js",
-    "make-release": "node scripts/make-release.ts .",
     "tsc": "tsc --noEmit",
     "pretest": "pnpm build",
     "test": "vitest run",
@@ -26,7 +26,6 @@
     "lint:fix": "oxlint --fix .",
     "clean": "rimraf dist coverage",
     "commitlint": "commitlint",
-    "prerelease": "node scripts/make-release.ts . --assemble-only",
     "release": "semantic-release",
     "release:check": "node scripts/check-release.mjs"
   },
@@ -37,6 +36,7 @@
     "yargs-file-commands": "^1.2.2"
   },
   "devDependencies": {
+    "@anolilab/semantic-release-pnpm": "^8.1.25",
     "@commitlint/cli": "^21.2.2",
     "@commitlint/config-conventional": "^21.2.2",
     "@semantic-release/changelog": "^7.0.0",
