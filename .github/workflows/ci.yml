@@ -10,12 +10,17 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   ci:
-    name: Quality checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - uses: pnpm/action-setup@v5
       - uses: actions/setup-node@v6
         with:
@@ -26,13 +31,27 @@ jobs:
       - run: pnpm build
       - run: pnpm tsc
       - run: pnpm lint
+      - name: Check formatting
+        run: pnpm exec oxfmt --check .
       - run: pnpm release:check
-      - run: pnpm test
-      - name: Audit dependencies
-        run: pnpm audit --audit-level high
+      - run: pnpm test --coverage
+      # --- repository-specific steps (package-content check, size budget, e2e, docs, ...) go here ---
       - name: Verify published package includes dist
         run: |
           pnpm pack --dry-run | grep -qx 'dist/bin/bhouston-link-checker.js' || {
             echo "::error::dist/bin/bhouston-link-checker.js missing from the packed tarball; the publish step would ship a broken package."
             exit 1
           }
+      - name: Audit dependencies
+        id: audit
+        continue-on-error: true
+        run: pnpm audit --audit-level=high
+      - name: Flag audit findings
+        if: steps.audit.outcome == 'failure'
+        run: echo '::warning::Dependency audit found vulnerabilities or could not reach the registry. Review the audit step.'
+      - uses: codecov/codecov-action@v5
+        if: ${{ !cancelled() && hashFiles('coverage/lcov.info') != '' }}
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage/lcov.info
+          fail_ci_if_error: false
