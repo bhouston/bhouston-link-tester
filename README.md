@@ -1,5 +1,7 @@
 # bhouston-link-checker
 
+[![Discord](https://img.shields.io/badge/Discord-Join%20Chat-5865F2?logo=discord&logoColor=white)](https://discord.gg/fwupDN493R)
+
 A CLI for crawling a site and reporting broken links.
 
 The checker starts from one or more seed URLs, visits same-origin HTML pages, extracts links and common asset references, validates the discovered URLs, and reports broken links by page and by URL.
