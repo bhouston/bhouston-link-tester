@@ -28,6 +28,13 @@ jobs:
       - run: pnpm lint
       - run: pnpm release:check
       - run: pnpm test
+      - run: pnpm docgen
+      - name: Validate generated OpenCLI with the published action
+        uses: bhouston/clidoc-action@v1
+        with:
+          files: opencli.json
+          specification: bcdxn
+          format: json
       - name: Audit dependencies
         run: pnpm audit --audit-level high
       - name: Verify published package includes dist

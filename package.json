@@ -25,11 +25,14 @@
     "lint": "oxlint .",
     "lint:fix": "oxlint --fix .",
     "clean": "rimraf dist coverage",
+    "docgen": "node ./dist/bin/bhouston-link-checker.js docgen --output opencli.json",
     "commitlint": "commitlint",
     "release": "semantic-release",
     "release:check": "node scripts/check-release.mjs"
   },
   "dependencies": {
+    "@clidoc/core": "^1.0.0",
+    "@clidoc/yargs": "^0.1.0",
     "chalk": "^5.6.2",
     "playwright": "^1.61.1",
     "yargs": "^18.0.0",
