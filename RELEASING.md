@@ -8,24 +8,24 @@ other than `main`, re-runs the quality checks against the exact dispatched
 commit, and aborts if `main` has advanced past that commit before the release
 step runs. The workflow runs `pnpm build` first, then `pnpm release`.
 semantic-release computes the version from commits since the previous `v*` tag,
-generates the changelog and release notes, writes `CHANGELOG.md` at the repo
-root, creates the tag and GitHub release, and publishes `bhouston-link-checker`
-straight from the repo root via `pnpm publish` (through
-`@anolilab/semantic-release-pnpm`) using npm trusted publishing (OIDC — no
-stored token), bumping `package.json`'s version along the way. There is no
-assembled `publish/` staging directory — `package.json`'s `files` field
-controls what gets published.
+generates release notes, creates the tag and GitHub release (the notes become
+the release body), and publishes `bhouston-link-checker` straight from the
+repo root via `pnpm publish` (through `@anolilab/semantic-release-pnpm`) using
+npm trusted publishing (OIDC — no stored token), bumping `package.json`'s
+version along the way. There is no assembled `publish/` staging directory —
+`package.json`'s `files` field controls what gets published.
 
 semantic-release does not commit a version/changelog update back to `main`;
-there is no `@semantic-release/git` step. The GitHub Release for each tag is
-the changelog of record, so the `version` field checked into the root
-`package.json` and `CHANGELOG.md` are informational, not authoritative. Do not
-edit versions manually or hand-push tags.
+there is no `@semantic-release/git` step and no generated `CHANGELOG.md`. The
+[GitHub Releases page](https://github.com/bhouston/bhouston-link-tester/releases)
+is the changelog of record; the `version` field checked into the root
+`package.json` is informational, not authoritative. Do not edit it manually or
+hand-push tags.
 
 Use the workflow's `dry_run` input
-(`gh workflow run release.yml --ref main -f dry_run=true`) to verify
-version/changelog computation without publishing. When there are no
-release-worthy commits since the last tag, the workflow succeeds as a no-op.
+(`gh workflow run release.yml --ref main -f dry_run=true`) to verify version
+computation without publishing. When there are no release-worthy commits
+since the last tag, the workflow succeeds as a no-op.
 
 ## Release baseline
 
