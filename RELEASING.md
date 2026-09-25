@@ -35,19 +35,16 @@ move this tag or tag unreleased work as a published version.
 
 ## One-time maintainer setup
 
-1. Require the `Quality checks` and `Contribution policy` checks on
-   contributor PRs to `main`.
+1. Require the `ci` and `contribution` checks on contributor PRs to `main`.
 2. In the npm package settings for **bhouston-link-checker**, add a GitHub
    Actions trusted publisher:
    - Organization or user: `bhouston`
    - Repository: `bhouston-link-tester`
    - Workflow filename: `release.yml`
-   - Environment name: leave blank
-3. After saving the npm settings, enable publishing with
-   `gh variable set NPM_TRUSTED_PUBLISHING_ENABLED --body true`. Until then
-   the `validate` and `release` jobs in `release.yml` are skipped (gated on
-   `vars.NPM_TRUSTED_PUBLISHING_ENABLED == 'true'`). Do not add `NPM_TOKEN`;
-   authentication uses `id-token: write`.
+   - Environment name: `npm`
+3. Create a GitHub Environment named `npm` on the repository (Settings ->
+   Environments) so the `release` job's `environment: npm` matches. Do not add
+   `NPM_TOKEN`; authentication uses `id-token: write`.
 4. Merge feature PRs into `main` as they land. When ready to publish, dispatch
    `Release` on `main`.
 
