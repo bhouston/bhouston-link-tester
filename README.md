@@ -87,4 +87,17 @@ The local `pnpm start` script runs the built CLI from `dist`, so run `pnpm build
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the issue/branch/PR workflow, local checks, and release process.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the issue/branch/PR workflow and local checks, and
+[RELEASING.md](RELEASING.md) for cutting a release.
+
+In addition to the checks in CONTRIBUTING.md, also run:
+
+```sh
+pnpm release:check
+pnpm audit --audit-level high
+pnpm format
+```
+
+`pnpm release:check` validates the release configuration without publishing;
+`.github/workflows/ci.yml` runs the same steps as local development, plus a check that the
+publishable package still assembles, on every push and pull request to `main`.

@@ -1,100 +1,59 @@
 # Contributing
 
-These rules apply to every contributor, including Claude and Codex. This file is
-the single source of truth for the workflow.
+These rules apply to every contributor, human or AI agent (Claude, Codex, and others). This file is the single source of truth for the workflow; `AGENTS.md` and `CLAUDE.md` only point here.
 
 ## Issue → branch → PR
 
-1. Before starting a feature or fix, open a GitHub issue (or reuse a matching
-   existing one) using the bug or feature template. Include a description,
-   motivation, and acceptance criteria.
-2. Fetch `origin` and branch from `origin/main`. Branch names are not
-   enforced; use whatever name is convenient. Never commit directly to `main`.
-3. Use Conventional Commits for every commit: `type(scope): description`. Types:
-   `feat`, `fix`, `perf`, `docs`, `chore`, `refactor`, `test`, `style`, `build`,
-   `ci`, `revert`. Husky's `commit-msg` hook runs commitlint locally.
-4. Run the checks below and fix any failures before requesting review.
-5. Push the branch and open a PR against `main`, with a Conventional Commit title
-   and `Closes #<issue>` in the body. The `PR policy` workflow checks the PR
-   title, that the linked issue exists and is open, and lints every commit in
-   the PR. Fix failed checks before merging. PRs are merged with merge commits
-   (`gh pr merge --merge`); never squash or rebase-merge.
-6. Merging a PR into `main` never publishes by itself. Release deliberately by
-   dispatching the `Release` workflow on `main` whenever you want the
-   accumulated changes published.
+1. **Start with an issue.** Before a feature, fix, or other tracked change, open a GitHub issue (or reuse one that already covers it) with the problem, motivation, constraints, and testable acceptance criteria. Agents use `gh issue create` with the same sections.
+2. **Branch from `main`.** Fetch and branch from current `origin/main`, named `<type>/<issue>-<short-description>` (for example `feat/42-batch-export`). Never commit directly to `main`. Use a separate worktree when you have unrelated local changes.
+3. **Commit with Conventional Commits** (see below). Reference the issue in the commit body where useful.
+4. **Run the local checks** below and fix failures before opening the PR.
+5. **Open a PR against `main`** with a Conventional Commit title, `Closes #<issue>` in the body, a description of the resulting behavior, and the validation you ran.
+6. **Merge only on green CI.** Every required check must pass. PRs are merged with merge commits (`gh pr merge --merge`); never squash or rebase-merge. Do not merge your own PR unless the maintainer asked you to.
+
+`main` is the default branch and the only integration branch. There are no long-lived release, promotion, or sync branches.
 
 ## Commit format
 
-- `feat: crawl sitemap links` → minor release.
-- `fix: retry flaky external checks` → patch release. `perf` also produces a patch release.
-- `feat!: drop node 18 support` → major release. Include a `BREAKING CHANGE: explain migration`
-  footer for users. A breaking-change footer also triggers a major release without `!`.
-- Other types do not normally trigger releases unless marked breaking.
+Use `type(optional-scope): description` in the imperative mood. Allowed types: `feat`, `fix`, `perf`, `docs`, `chore`, `refactor`, `test`, `style`, `build`, `ci`, `revert`.
+
+- `feat:` produces a minor release.
+- `fix:` and `perf:` produce a patch release.
+- `feat!:` (any type with `!`) or a `BREAKING CHANGE:` footer produces a major release.
+- Other types do not trigger a release on their own.
+
+Husky runs commitlint on every commit after `pnpm install`. CI checks the PR title and every commit in the PR. Git-generated merge commits are exempt.
 
 ## Local checks
 
-Use the Node version in `.nvmrc` and the pnpm version pinned in `package.json`,
-then install dependencies (this enables Husky's hooks):
+Use the Node version in `.nvmrc` and the pnpm version pinned in `package.json` (`packageManager`).
 
 ```sh
-pnpm install
+pnpm install --frozen-lockfile
 pnpm build
 pnpm tsc
 pnpm lint
-pnpm release:check
 pnpm test
-pnpm audit --audit-level high
-pnpm format
 ```
 
-`.github/workflows/ci.yml` runs the same steps, plus a check that the publishable package still
-assembles, on every push and pull request to `main`.
+The Husky pre-commit hook formats and lints staged files (`oxfmt`, `oxlint --fix`) and type-checks the workspace. CI runs the same checks plus any repository-specific gates, such as coverage floors, bundle-size budgets, package-content checks, and a dependency audit; see `.github/workflows/ci.yml`. Explain any intentional threshold change in the PR.
 
-## Automated releases
+## Releases
 
-Releases are computed from Conventional Commits by [semantic-release](https://semantic-release.gitbook.io/),
-never run on push: dispatch `.github/workflows/release.yml` with `gh workflow run release.yml --ref main`.
-It rejects dispatches against any ref other than `main`, re-runs the quality checks against the exact
-dispatched commit, and aborts if `main` has advanced past that commit before the release step runs.
-The workflow runs `pnpm build` first, then `pnpm release`. semantic-release computes the version from
-commits since the previous `v*` tag, generates the changelog and release notes, writes `CHANGELOG.md`
-at the repo root, creates the tag and GitHub release, and publishes `bhouston-link-checker` straight
-from the repo root via `pnpm publish` (through `@anolilab/semantic-release-pnpm`) using npm trusted
-publishing (OIDC — no stored token), bumping `package.json`'s version along the way. There is no
-assembled `publish/` staging directory — `package.json`'s `files` field controls what gets published.
-
-semantic-release does not commit a version/changelog update back to `main`; there is no
-`@semantic-release/git` step. The GitHub Release for each tag is the changelog of record, so the
-`version` field checked into the root `package.json` and `CHANGELOG.md` are informational, not
-authoritative. Do not edit versions manually or hand-push tags.
-
-Use the workflow's `dry_run` input (`gh workflow run release.yml --ref main -f dry_run=true`) to
-verify version/changelog computation without publishing. When there are no release-worthy commits
-since the last tag, the workflow succeeds as a no-op.
-
-The migration baseline is `v1.0.0` at `5dec635b4c185d9d89534b0618392172f0b20a9e`, matching the
-`gitHead` npm recorded for the already-published `1.0.0`. Do not move this tag or tag unreleased
-work as a published version.
-
-## One-time maintainer setup
-
-1. Require the `Quality checks` and `Contribution policy` checks on contributor PRs to `main`.
-2. In the npm package settings for **bhouston-link-checker**, add a GitHub Actions trusted publisher:
-   - Organization or user: `bhouston`
-   - Repository: `bhouston-link-tester`
-   - Workflow filename: `release.yml`
-   - Environment name: leave blank
-3. After saving the npm settings, enable publishing with `gh variable set NPM_TRUSTED_PUBLISHING_ENABLED --body true`. Until then the release job is skipped. Do not add `NPM_TOKEN`; authentication uses `id-token: write`.
-4. Merge feature PRs into `main` as they land. When ready to publish, dispatch `Release` on `main`.
-
-See [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/) and
-[semantic-release on GitHub Actions](https://semantic-release.gitbook.io/semantic-release/recipes/ci-configurations/github-actions).
-
-## Local package inspection
-
-To build and inspect the publishable package without going through semantic-release:
+Merging to `main` never publishes. A release is a separate, deliberate step that the maintainer triggers whenever the changes accumulated on `main` should ship:
 
 ```sh
-pnpm build
-npm pack --dry-run
+gh workflow run release.yml --ref main                  # release
+gh workflow run release.yml --ref main -f dry_run=true  # preview only, publishes nothing
 ```
+
+The Release workflow refuses any ref other than `main`, re-runs CI on the dispatched commit, and then uses semantic-release to compute the next version from the Conventional Commits since the last release tag, generate release notes, create the tag and GitHub Release, and publish:
+
+- npm packages, through npm trusted publishing (GitHub OIDC, no `NPM_TOKEN`);
+- VS Code extensions, where the repository has one, to the VS Code Marketplace and Open VSX.
+
+When there are no release-worthy commits, the run is a no-op. Never bump versions, edit changelogs, or push release tags by hand.
+
+## Security
+
+Report vulnerabilities privately through GitHub's private vulnerability reporting (see `SECURITY.md` where present), never in a public issue.
