@@ -4,10 +4,10 @@ allowBuilds:
   highlight.js: true
 
 minimumReleaseAgeExclude:
-  - '@clidoc/core@1.0.0'
-  - '@clidoc/yargs@0.1.0'
-  - vitest-command-line@0.8.0
-  - yargs-file-commands@1.2.2
+  - '@clidoc/core'
+  - '@clidoc/yargs'
+  - vitest-command-line
+  - yargs-file-commands
 
 overrides:
   brace-expansion: '>=5.0.9'
