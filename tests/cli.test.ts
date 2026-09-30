@@ -171,6 +171,19 @@ describe('bhouston-link-checker CLI', () => {
     expect(result.stderr).toContain('--allow-external and --allow-whitelist are incompatible');
   });
 
+  it('generates an OpenCLI document describing its own commands', async () => {
+    const result = await cli.run(['docgen']);
+    const document = result.json<{
+      opencliVersion: string;
+      commands: Record<string, { flags?: { name: string }[] }>;
+    }>();
+
+    expect(result.success).toBe(true);
+    expect(document.opencliVersion).toBeTruthy();
+    expect(document.commands['bhouston-link-checker']?.flags?.map((flag) => flag.name)).toContain('concurrency');
+    expect(document.commands['bhouston-link-checker docgen']).toBeDefined();
+  });
+
   it('documents the headed browser option', async () => {
     const result = await cli.run(['--help']);
 

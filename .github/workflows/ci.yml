@@ -35,7 +35,15 @@ jobs:
         run: pnpm exec oxfmt --check .
       - run: pnpm release:check
       - run: pnpm test --coverage
-      # --- repository-specific steps (package-content check, size budget, e2e, docs, ...) go here ---
+      - run: pnpm docgen
+      - name: Validate generated OpenCLI with the published action
+        uses: bhouston/clidoc-action@v1
+        with:
+          files: opencli.json
+          specification: bcdxn
+          format: json
+      - name: Audit dependencies
+        run: pnpm audit --audit-level high
       - name: Verify published package includes dist
         run: |
           pnpm pack --dry-run | grep -qx 'dist/bin/bhouston-link-checker.js' || {
