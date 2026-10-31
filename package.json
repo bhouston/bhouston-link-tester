@@ -64,7 +64,7 @@
     "*.{json,jsonc,md,mdx,css,html,yml,yaml}": "oxfmt"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=26"
   },
   "packageManager": "pnpm@12.16.1"
 }
