@@ -29,3 +29,8 @@ output*.*
 
 # generated OpenCLI document
 /opencli.json
+
+# Agent tooling
+.claude/
+.codex/
+.cursor/
